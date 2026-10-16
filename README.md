@@ -1,4 +1,4 @@
-# Lavagna Progetti
+# Gara Nazionale Grafica e Comunicazione 2026/27
 
 Una lavagna di foglietti per raccogliere e categorizzare le idee, più un diagramma di Gantt su cui trascinarle per pianificarle e assegnarle alle persone.
 

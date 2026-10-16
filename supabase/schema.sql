@@ -1,4 +1,4 @@
--- Lavagna Progetti: schema Supabase.
+-- Gara Nazionale Grafica e Comunicazione 2026/27: schema Supabase.
 -- Esegui tutto il file una volta in Supabase > SQL Editor.
 
 create table if not exists public.lavagna_docs (
