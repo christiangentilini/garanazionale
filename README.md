@@ -10,7 +10,8 @@ Una lavagna di foglietti per raccogliere e categorizzare le idee, più un diagra
 - **Diagramma:** si trascina un'idea sulla linguetta "Diagramma" oppure dal pannello "Idee da pianificare" su una riga. La data dipende da dove la si lascia, la riga decide la persona (o la categoria).
 - **Barre:** si spostano trascinandole, si allungano o accorciano dai bordi. Riportate nel pannello o sulla linguetta "Lavagna" tornano idee.
 - **Scale:** Giorni, Settimane e Mesi; in tutte si vede ogni singolo giorno.
-- **Dettagli:** con un clic su un foglietto o su una barra si modificano titolo, note, categoria, persona, date e avanzamento.
+- **Dettagli:** con un clic su un foglietto o su una barra si modificano titolo, note, categoria, persone assegnate, date e avanzamento.
+- **Più persone:** un'attività può essere assegnata a più persone e compare nella riga di ciascuna. Trascinando la barra dalla riga di una persona a quella di un'altra, l'attività passa dalla prima alla seconda; gli altri assegnatari restano.
 - **Persone e categorie:** si gestiscono dal pulsante in alto, con nome e colore.
 
 ## Configurare Supabase

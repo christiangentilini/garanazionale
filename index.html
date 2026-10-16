@@ -114,6 +114,14 @@ header.top h1 small{font-family:var(--f-body);font-weight:400;font-size:13px;col
 .sticker .meta{display:flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:11px;opacity:.85}
 .sticker.lift{opacity:.35}
 .chip{width:22px;height:22px;border-radius:50%;background:var(--h);color:#fff;font-size:10.5px;font-weight:600;display:inline-grid;place-items:center;flex:none;font-family:var(--f-body);letter-spacing:.02em;border:1.5px solid var(--surface)}
+.chips{display:inline-flex;flex:none}
+.chips .chip+.chip{margin-left:-4px}
+.chip.more{background:var(--ink-2)}
+.pick{display:flex;flex-wrap:wrap;gap:6px}
+.pick button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:3px 10px 3px 3px;cursor:pointer;font-size:13px}
+.pick button[aria-pressed="true"]{border-color:var(--ink);background:var(--surface-2);font-weight:600}
+.pick button[aria-pressed="false"] .chip{opacity:.45}
+.pick .none-msg{font-size:12.5px;color:var(--ink-2)}
 .chip.none{background:transparent;border:1.5px dashed currentColor;color:inherit;opacity:.55}
 
 /* Gantt */
@@ -165,8 +173,8 @@ header.top h1 small{font-family:var(--f-body);font-weight:400;font-size:13px;col
 .bar.moving{pointer-events:none;opacity:.85;z-index:4;box-shadow:0 10px 24px -8px rgba(0,0,0,.45)}
 .g-empty{position:absolute;left:calc(var(--lw) + 24px);top:120px;max-width:340px;color:var(--ink-2);font-size:13px;pointer-events:none;z-index:2;background:var(--surface);padding:10px 12px;border:1.5px dashed var(--line);border-radius:8px}
 
-.ghost{position:fixed;z-index:100;pointer-events:none;transform:rotate(2.5deg);box-shadow:0 18px 30px -10px rgba(0,0,0,.5)}
-.ghost .when{position:absolute;left:0;top:-24px;background:var(--ink);color:var(--bg);font-family:var(--f-mono);font-size:11px;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.drag-ghost{position:fixed;z-index:100;pointer-events:none;transform:rotate(2.5deg);box-shadow:0 18px 30px -10px rgba(0,0,0,.5)}
+.drag-ghost .when{position:absolute;left:0;top:-24px;background:var(--ink);color:var(--bg);font-family:var(--f-mono);font-size:11px;padding:2px 7px;border-radius:5px;white-space:nowrap}
 .dragging,.dragging *{cursor:grabbing!important}
 
 /* Dialogs */
@@ -256,10 +264,8 @@ dialog::backdrop{background:rgba(10,14,20,.45)}
     <div class="dlg-b">
       <label class="fld"><span>Titolo</span><input id="f-title" autocomplete="off" placeholder="Cosa vuoi fare?"></label>
       <label class="fld"><span>Note</span><textarea id="f-notes" placeholder="Dettagli, link, dubbi…"></textarea></label>
-      <div class="row2">
-        <label class="fld"><span>Categoria</span><select id="f-cat"></select></label>
-        <label class="fld"><span>Assegnata a</span><select id="f-person"></select></label>
-      </div>
+      <label class="fld"><span>Categoria</span><select id="f-cat"></select></label>
+      <div class="fld"><span id="f-people-l">Assegnata a</span><div class="pick" id="f-people" role="group" aria-labelledby="f-people-l"></div></div>
       <div class="row2" id="f-dates">
         <label class="fld"><span>Inizio</span><input type="date" id="f-start"></label>
         <label class="fld"><span>Fine</span><input type="date" id="f-end"></label>
@@ -384,7 +390,7 @@ function sampleData(){
   const t = todayIdx(), c1 = uid(), c2 = uid(), c3 = uid(), p1 = uid(), p2 = uid();
   const cats = [{id:c1,name:'Prodotto',color:3,order:1},{id:c2,name:'Comunicazione',color:1,order:2},{id:c3,name:'Da valutare',color:0,order:3}];
   const people = [{id:p1,name:'Persona 1',color:0},{id:p2,name:'Persona 2',color:1}];
-  const mk = (title, cat, person, s, len, notes='', progress=0) => ({ id:uid(), title, notes, cat, person, start: s==null?null:toStr(t+s), end: s==null?null:toStr(t+s+len-1), progress, created:Date.now() });
+  const mk = (title, cat, person, s, len, notes='', progress=0) => ({ id:uid(), title, notes, cat, people: person ? [person] : [], start: s==null?null:toStr(t+s), end: s==null?null:toStr(t+s+len-1), progress, created:Date.now() });
   const items = [
     mk('Esempio: bozza del nuovo modulo iscrizioni', c1, p1, -3, 8, 'Esempio. Trascina la barra per spostarla, tira i bordi per cambiare durata.', 40),
     mk('Esempio: test con 5 utenti', c1, p2, 6, 5),
@@ -445,7 +451,15 @@ async function init(){
 const catsSorted = () => [...S.cats.values()].sort((a,b) => (a.order||0) - (b.order||0) || a.name.localeCompare(b.name));
 const peopleSorted = () => [...S.people.values()].sort((a,b) => (a.name||'').localeCompare(b.name||''));
 const catOf = it => S.cats.get(it.cat) || null;
-const personOf = it => S.people.get(it.person) || null;
+// Assegnatari: lista di id in it.people (le vecchie idee avevano un solo it.person).
+const peopleIds = it => (Array.isArray(it.people) ? it.people : (it.person ? [it.person] : [])).filter(id => S.people.has(id));
+const peopleOfIt = it => peopleIds(it).map(id => S.people.get(id)).sort((a,b) => (a.name||'').localeCompare(b.name||''));
+function setPeople(it, ids){ it.people = [...new Set(ids)].filter(Boolean); delete it.person; }
+function chips(ps, max = 3){
+  if (!ps.length) return chip(null);
+  const shown = ps.length > max ? ps.slice(0, max - 1) : ps;
+  return el('span', { class:'chips', title: ps.map(p => p.name).join(', ') }, shown.map(chip), ps.length > shown.length ? el('span', { class:'chip more' }, '+' + (ps.length - shown.length)) : null);
+}
 const noteCls = it => 'n' + (((catOf(it)?.color ?? 0) % NOTE_N) + NOTE_N) % NOTE_N;
 const initials = n => (n || '?').trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase() || '?';
 function chip(p){
@@ -489,11 +503,11 @@ function renderBoard(){
   board.scrollLeft = sl;
 }
 function stickerEl(it){
-  const p = personOf(it);
+  const ps = peopleOfIt(it);
   const e = el('div', { class:'sticker ' + noteCls(it), tabindex:'0', role:'button', 'data-id':it.id, 'aria-label':(it.title || 'Senza titolo') + ', apri' },
     el('div', { class:'t' + (it.title ? '' : ' untitled') }, it.title || 'Senza titolo'),
     it.notes ? el('div', { class:'d' }, it.notes) : null,
-    el('div', { class:'meta' }, chip(p), p ? p.name : ''));
+    el('div', { class:'meta' }, chips(ps), ps.length === 1 ? ps[0].name : ps.length ? `${ps.length} persone` : ''));
   e.addEventListener('pointerdown', ev => press(ev, 'sticker', it.id, e));
   e.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openEditor(it.id); } });
   return e;
@@ -554,7 +568,7 @@ function groups(){
   gs.push({ id:'', name: S.groupBy === 'person' ? 'Non assegnate' : 'Senza categoria', head: el('span', { class:'chip none' }) });
   return gs;
 }
-const groupKey = it => S.groupBy === 'person' ? (S.people.has(it.person) ? it.person : '') : (S.cats.has(it.cat) ? it.cat : '');
+const inGroup = (it, g) => S.groupBy === 'person' ? (g ? peopleIds(it).includes(g) : !peopleIds(it).length) : (S.cats.has(it.cat) ? it.cat : '') === g;
 
 function renderGantt(){
   const sc = $('#gscroll');
@@ -592,7 +606,7 @@ function renderGantt(){
 
   const sched = [...S.items.values()].filter(it => it.start && it.end);
   for (const g of groups()) {
-    const its = sched.filter(it => groupKey(it) === g.id).sort((x,y) => x.start.localeCompare(y.start) || (x.created||0) - (y.created||0));
+    const its = sched.filter(it => inGroup(it, g.id)).sort((x,y) => x.start.localeCompare(y.start) || (x.created||0) - (y.created||0));
     inner.append(el('div', { class:'g-row g-grp', 'data-drop':'row', 'data-group':g.id },
       el('div', { class:'g-label' }, g.head, el('span', { class:'lt', title:g.name }, g.name || 'Senza nome'), el('span', { class:'cnt' }, its.length)),
       el('div', { class:'g-track', style:`width:${n*dw}px` })));
@@ -623,13 +637,13 @@ function renderGantt(){
   S.lastA = a; S.lastDw = dw;
 }
 function barEl(it, a, dw){
-  const s = toIdx(it.start), e = toIdx(it.end), p = personOf(it);
+  const s = toIdx(it.start), e = toIdx(it.end), ps = peopleOfIt(it);
   const bar = el('div', { class:'bar ' + noteCls(it) + ((it.progress||0) >= 100 ? ' done' : ''), tabindex:'0', role:'button', 'data-id':it.id,
-      style:`left:${(s - a) * dw}px;width:${Math.max(1, e - s + 1) * dw}px`, title:`${it.title || 'Senza titolo'}\n${fmt(s)} → ${fmt(e)} (${e - s + 1} g)` + (p ? `\n${p.name}` : '') },
+      style:`left:${(s - a) * dw}px;width:${Math.max(1, e - s + 1) * dw}px`, title:`${it.title || 'Senza titolo'}\n${fmt(s)} → ${fmt(e)} (${e - s + 1} g)` + (ps.length ? `\n${ps.map(p => p.name).join(', ')}` : '') },
     el('span', { class:'prog', style:`width:${Math.min(100, it.progress||0)}%` }),
     el('span', { class:'hd l' }),
     el('span', { class:'bt' }, it.title || 'Senza titolo'),
-    S.groupBy === 'cat' || dw * (e - s + 1) > 70 ? chip(p) : null,
+    S.groupBy === 'cat' || dw * (e - s + 1) > 70 ? chips(ps, dw * (e - s + 1) > 140 ? 3 : 1) : null,
     el('span', { class:'hd r' }));
   bar.addEventListener('pointerdown', ev => {
     const h = ev.target.closest('.hd');
@@ -654,7 +668,7 @@ function press(ev, kind, id, srcEl){
   if (ev.button > 0) return;
   if (S.readOnly) { if (ev.pointerType !== 'touch') { const up = () => { window.removeEventListener('pointerup', up); openEditor(id); }; window.addEventListener('pointerup', up); } else { srcEl.addEventListener('click', () => openEditor(id), { once:true }); } return; }
   if (ev.pointerType === 'mouse') ev.preventDefault();
-  drag = { kind, id, src:srcEl, x0:ev.clientX, y0:ev.clientY, x:ev.clientX, y:ev.clientY, touch: ev.pointerType === 'touch', active:false, sl0: $('#gscroll').scrollLeft };
+  drag = { kind, id, src:srcEl, x0:ev.clientX, y0:ev.clientY, x:ev.clientX, y:ev.clientY, touch: ev.pointerType === 'touch', active:false, sl0: $('#gscroll').scrollLeft, g0: srcEl.closest('.g-row')?.dataset.group ?? null };
   if (drag.touch) drag.timer = setTimeout(() => { if (drag && !drag.active) activate(); }, 260);
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -668,7 +682,7 @@ function activate(){
   if (drag.kind === 'sticker') {
     const r = drag.src.getBoundingClientRect();
     drag.ox = drag.x0 - r.left; drag.oy = drag.y0 - r.top;
-    const g = drag.src.cloneNode(true); g.classList.add('ghost'); g.style.width = r.width + 'px';
+    const g = drag.src.cloneNode(true); g.classList.add('drag-ghost'); g.style.width = r.width + 'px';
     g.append(drag.when = el('span', { class:'when', hidden:true }));
     document.body.append(g); drag.ghost = g;
     drag.src.classList.add('lift');
@@ -677,7 +691,7 @@ function activate(){
     drag.left0 = parseFloat(drag.src.style.left); drag.w0 = parseFloat(drag.src.style.width);
     if (drag.kind === 'bar') drag.src.classList.add('moving');
     drag.tip = el('span', { class:'when' });
-    const g = el('div', { class:'ghost', style:'transform:none;box-shadow:none' }, drag.tip); document.body.append(g); drag.ghost = g;
+    const g = el('div', { class:'drag-ghost', style:'transform:none;box-shadow:none' }, drag.tip); document.body.append(g); drag.ghost = g;
   }
   moveVisual();
 }
@@ -776,7 +790,15 @@ function drop(it){
   if (t.dataset.drop === 'row') {
     const g = t.dataset.group;
     const next = { ...it };
-    if (S.groupBy === 'person') next.person = g; else next.cat = g;
+    if (S.groupBy === 'cat') next.cat = g;
+    else {
+      // Su una riga persona: la barra passa da chi la "portava" (g0) alla nuova persona; gli altri assegnatari restano.
+      let ids = peopleIds(it);
+      if (drag.kind !== 'sticker' && drag.g0 !== g) ids = ids.filter(id => id !== drag.g0);
+      if (g) ids.push(g);
+      else if (drag.kind !== 'sticker' && drag.g0 === '') ids = [];
+      setPeople(next, ids);
+    }
     if (drag.kind === 'sticker') {
       const s = Math.max(dayAt(drag.x), S.range[0]); const len = it.dur || 5;
       next.start = toStr(s); next.end = toStr(s + len - 1);
@@ -806,7 +828,7 @@ document.addEventListener('contextmenu', e => { if (drag) e.preventDefault(); })
 /* ---------- editor ---------- */
 function newItem(cat){
   if (S.readOnly) return;
-  const it = { id:uid(), title:'', notes:'', cat: cat ?? (catsSorted()[0]?.id || ''), person:'', start:null, end:null, progress:0, created:Date.now() };
+  const it = { id:uid(), title:'', notes:'', cat: cat ?? (catsSorted()[0]?.id || ''), people:[], start:null, end:null, progress:0, created:Date.now() };
   put('items', it);
   openEditor(it.id, true);
 }
@@ -830,7 +852,10 @@ function syncEditor(full){
   setIf('#f-title', it.title || '');
   setIf('#f-notes', it.notes || '');
   if (full || ae !== $('#f-cat')) fillSelect($('#f-cat'), [['', 'Senza categoria'], ...catsSorted().map(c => [c.id, c.name])], it.cat || '');
-  if (full || ae !== $('#f-person')) fillSelect($('#f-person'), [['', 'Nessuno'], ...peopleSorted().map(p => [p.id, p.name])], it.person || '');
+  { const sel = new Set(peopleIds(it)); const box = $('#f-people'); const focusId = ae && box.contains(ae) ? ae.dataset.pid : null;
+    box.replaceChildren(...(peopleSorted().length ? peopleSorted().map(p => el('button', { type:'button', 'data-pid':p.id, 'aria-pressed':String(sel.has(p.id)), disabled:S.readOnly }, chip(p), p.name))
+      : [el('span', { class:'none-msg' }, 'Nessuna persona: aggiungile da "Persone e categorie".')]));
+    if (focusId) box.querySelector(`[data-pid="${focusId}"]`)?.focus(); }
   setIf('#f-start', it.start || ''); setIf('#f-end', it.end || '');
   setIf('#f-prog', it.progress || 0); $('#f-prog-o').textContent = (it.progress || 0) + '%';
   $('#f-dates').hidden = !it.start; $('#f-prog-wrap').hidden = !it.start;
@@ -907,7 +932,8 @@ function wireStatic(){
   $('#f-title').addEventListener('input', e => editField(n => n.title = e.target.value, true));
   $('#f-notes').addEventListener('input', e => editField(n => n.notes = e.target.value, true));
   $('#f-cat').addEventListener('change', e => editField(n => n.cat = e.target.value));
-  $('#f-person').addEventListener('change', e => editField(n => n.person = e.target.value));
+  $('#f-people').addEventListener('click', e => { const b = e.target.closest('button[data-pid]'); if (!b) return;
+    editField(n => { const ids = peopleIds(n); setPeople(n, ids.includes(b.dataset.pid) ? ids.filter(id => id !== b.dataset.pid) : [...ids, b.dataset.pid]); }); });
   $('#f-start').addEventListener('change', e => { if (!e.target.value) return; editField(n => {
     const len = toIdx(n.end) - toIdx(n.start); n.start = e.target.value; n.end = toStr(toIdx(n.start) + len); }); });
   $('#f-end').addEventListener('change', e => { if (!e.target.value) return; editField(n => {
